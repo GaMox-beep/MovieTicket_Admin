@@ -43,5 +43,7 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation("com.google.firebase:firebase-analytics")
     implementation ("com.github.bumptech.glide:glide:4.16.0")
+    implementation ("com.google.firebase:firebase-firestore:24.4.1")
+    implementation ("com.google.firebase:firebase-storage:20.1.0")
 
 }
