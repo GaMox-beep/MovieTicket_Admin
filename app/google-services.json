@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "7037346197",
+    "project_id": "movie-9d49b",
+    "storage_bucket": "movie-9d49b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:7037346197:android:d9ea8e2e02640efd38d69c",
+        "android_client_info": {
+          "package_name": "com.example.movie_ticket"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3VVVwtOUIwl9u62BetBidEpslM2SPFm4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:7037346197:android:a39357396dd04ca638d69c",
+        "android_client_info": {
+          "package_name": "com.example.movieticket_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3VVVwtOUIwl9u62BetBidEpslM2SPFm4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

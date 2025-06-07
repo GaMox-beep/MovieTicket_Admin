@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">MovieTicket_Admin</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string-array name="movie_genres">
+        <item>Hành động</item>
+        <item>Phiêu lưu</item>
+        <item>Hoạt hình</item>
+        <item>Hài hước</item>
+        <item>Tội phạm</item>
+        <item>Tài liệu</item>
+        <item>Chính kịch</item>
+        <item>Gia đình</item>
+        <item>Giả tưởng</item>
+        <item>Lịch sử</item>
+        <item>Kinh dị</item>
+        <item>Nhạc kịch</item>
+        <item>Bí ẩn</item>
+        <item>Tình cảm</item>
+        <item>Khoa học viễn tưởng</item>
+        <item>Thể thao</item>
+        <item>Gây cấn</item>
+        <item>Chiến tranh</item>
+        <item>Miền tây</item>
+        <item>Tâm lý</item>
+    </string-array>
+
+    <!-- Movie Status Array -->
+    <string-array name="movie_status">
+        <item>Sắp chiếu</item>
+        <item>Đang chiếu</item>
+        <item>Ngừng chiếu</item>
+        <item>Tạm dừng</item>
+    </string-array>
+</resources>
