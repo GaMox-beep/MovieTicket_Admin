@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.example.movieticket_admin.Cinema.CinemaAdminFragment;
 import com.example.movieticket_admin.Movie.MovieAdminFragment;
 import com.google.android.material.navigation.NavigationView;
 
@@ -54,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         fragmentMap = new HashMap<>();
         fragmentMap.put(R.id.nav_movies, MovieAdminFragment.class);
         // Các mục khác sẽ được cập nhật sau
-        // fragmentMap.put(R.id.nav_genres, GenresFragment.class);
+         fragmentMap.put(R.id.nav_genres, CinemaAdminFragment.class);
         // fragmentMap.put(R.id.nav_services, ServicesFragment.class);
          fragmentMap.put(R.id.nav_reports, DashboardFragment.class);
 
