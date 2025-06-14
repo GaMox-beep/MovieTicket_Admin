@@ -16,6 +16,9 @@
         android:theme="@style/Theme.MovieTicket_Admin"
         tools:targetApi="31">
         <activity
+            android:name=".Cinema.EditCinemaActivity"
+            android:exported="false" />
+        <activity
             android:name=".Cinema.AddCinemaActivity"
             android:exported="false" />
         <activity
