@@ -34,4 +34,14 @@
         <item>Ngừng chiếu</item>
         <item>Tạm dừng</item>
     </string-array>
+
+    <string-array name="major_CitiesVN">
+        <item>Hà Nội</item>
+        <item>TP. Hồ Chí Minh</item>
+        <item>Đà Nẵng</item>
+        <item>Hải Phòng</item>
+        <item>Cần Thơ</item>
+        <item>Nha Trang</item>
+        <item>Huế</item>
+    </string-array>
 </resources>

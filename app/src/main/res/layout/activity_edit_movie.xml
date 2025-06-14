@@ -33,11 +33,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Thêm Phim Mới"
+                android:text="Chỉnh sửa Phim"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
                 android:gravity="center" />
+
 
             <View
                 android:layout_width="48dp"
@@ -157,7 +158,7 @@
             app:boxStrokeColor="@color/primary_color"
             app:hintTextColor="@color/primary_color"
             app:endIconMode="custom"
-           >
+            >
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_poster_url"
@@ -206,7 +207,7 @@
             app:boxStrokeColor="@color/primary_color"
             app:hintTextColor="@color/primary_color"
             app:endIconMode="custom"
-           >
+            >
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_trailer_url"

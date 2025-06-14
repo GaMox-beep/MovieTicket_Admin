@@ -1,13 +1,12 @@
-package com.example.movieticket_admin;
-
-import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
+package com.example.movieticket_admin.Movie;
 
 import android.app.DatePickerDialog;
 import android.app.ProgressDialog;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -15,63 +14,46 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.TextView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.example.movieticket_admin.R;
-import com.example.movieticket_admin.models.Movie;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.UUID;
+import java.util.Map;
 
 public class AddMovieActivity extends AppCompatActivity {
 
     private static final String TAG = "AddMovieActivity";
     private static final String COLLECTION_MOVIES = "movies";
-    private static final String STORAGE_PATH_POSTERS = "movie_posters/";
-    private static final String STORAGE_PATH_TRAILERS = "movie_trailers/";
 
     // UI Components
     private ImageButton btnBack;
-    private TextInputEditText etTitle, etDuration, etReleaseDate, etDescription;
-    private TextInputLayout tilTitle, tilGenre, tilDuration, tilReleaseDate, tilStatus, tilDescription;
+    private TextInputEditText etTitle, etDuration, etReleaseDate, etDescription, etPosterUrl, etTrailerUrl;
+    private TextInputLayout tilTitle, tilGenre, tilDuration, tilReleaseDate, tilStatus, tilDescription, tilPosterUrl, tilTrailerUrl;
     private AutoCompleteTextView spinnerGenre, spinnerStatus;
+    private Button btnCancel, btnSave;
     private ImageView ivPosterPreview, ivTrailerPreview;
-    private Button btnSelectPoster, btnSelectTrailer, btnCancel, btnSave;
-    private TextView tvPosterName, tvTrailerName;
+    private LinearLayout layoutPosterPreview, layoutTrailerPreview;
 
     // Firebase
     private FirebaseFirestore firestore;
-    private FirebaseStorage storage;
-    private StorageReference storageRef;
-
-    // Data
-    private Uri selectedPosterUri, selectedTrailerUri;
-    private String posterDownloadUrl, trailerDownloadUrl;
     private ProgressDialog progressDialog;
 
     // Date formatter
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
     private Calendar calendar = Calendar.getInstance();
-
-    // Activity Result Launchers
-    private ActivityResultLauncher<String> posterPickerLauncher;
-    private ActivityResultLauncher<String> trailerPickerLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,15 +64,13 @@ public class AddMovieActivity extends AppCompatActivity {
         initViews();
         setupSpinners();
         setupDatePicker();
-        setupFilePickerLaunchers();
         setupClickListeners();
+        setupUrlPreview();
         initProgressDialog();
     }
 
     private void initFirebase() {
         firestore = FirebaseFirestore.getInstance();
-        storage = FirebaseStorage.getInstance();
-        storageRef = storage.getReference();
     }
 
     private void initViews() {
@@ -102,6 +82,8 @@ public class AddMovieActivity extends AppCompatActivity {
         etDuration = findViewById(R.id.et_duration);
         etReleaseDate = findViewById(R.id.et_release_date);
         etDescription = findViewById(R.id.et_description);
+        etPosterUrl = findViewById(R.id.et_poster_url);
+        etTrailerUrl = findViewById(R.id.et_trailer_url);
 
         // Text Input Layouts
         tilTitle = findViewById(R.id.til_title);
@@ -110,18 +92,18 @@ public class AddMovieActivity extends AppCompatActivity {
         tilReleaseDate = findViewById(R.id.til_release_date);
         tilStatus = findViewById(R.id.til_status);
         tilDescription = findViewById(R.id.til_description);
+        tilPosterUrl = findViewById(R.id.til_poster_url);
+        tilTrailerUrl = findViewById(R.id.til_trailer_url);
 
         // Spinners
         spinnerGenre = findViewById(R.id.spinner_genre);
         spinnerStatus = findViewById(R.id.spinner_status);
 
-        // Media components
+        // Preview components
         ivPosterPreview = findViewById(R.id.iv_poster_preview);
         ivTrailerPreview = findViewById(R.id.iv_trailer_preview);
-        btnSelectPoster = findViewById(R.id.btn_select_poster);
-        btnSelectTrailer = findViewById(R.id.btn_select_trailer);
-        tvPosterName = findViewById(R.id.tv_poster_name);
-        tvTrailerName = findViewById(R.id.tv_trailer_name);
+        layoutPosterPreview = findViewById(R.id.layout_poster_preview);
+        layoutTrailerPreview = findViewById(R.id.layout_trailer_preview);
 
         // Action buttons
         btnCancel = findViewById(R.id.btn_cancel);
@@ -161,69 +143,73 @@ public class AddMovieActivity extends AppCompatActivity {
         datePickerDialog.show();
     }
 
-    private void setupFilePickerLaunchers() {
-        // Poster picker
-        posterPickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetContent(),
-                uri -> {
-                    if (uri != null) {
-                        selectedPosterUri = uri;
-                        displayPosterPreview(uri);
-                        tvPosterName.setText(getFileName(uri));
-                    }
-                }
-        );
-
-        // Trailer picker
-        trailerPickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetContent(),
-                uri -> {
-                    if (uri != null) {
-                        selectedTrailerUri = uri;
-                        displayTrailerPreview(uri);
-                        tvTrailerName.setText(getFileName(uri));
-                    }
-                }
-        );
+    private void setupClickListeners() {
+        btnBack.setOnClickListener(v -> onBackPressed());
+        btnCancel.setOnClickListener(v -> showCancelConfirmationDialog());
+        btnSave.setOnClickListener(v -> validateAndSaveMovie());
     }
 
-    private void displayPosterPreview(Uri uri) {
+    private void setupUrlPreview() {
+        // Setup poster URL preview
+        etPosterUrl.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String url = s.toString().trim();
+                if (!TextUtils.isEmpty(url) && isValidUrl(url)) {
+                    loadPosterPreview(url);
+                    layoutPosterPreview.setVisibility(View.VISIBLE);
+                } else {
+                    layoutPosterPreview.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        // Setup trailer URL preview
+        etTrailerUrl.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String url = s.toString().trim();
+                if (!TextUtils.isEmpty(url) && isValidUrl(url)) {
+                    loadTrailerPreview(url);
+                    layoutTrailerPreview.setVisibility(View.VISIBLE);
+                } else {
+                    layoutTrailerPreview.setVisibility(View.GONE);
+                }
+            }
+        });
+    }
+
+    private void loadPosterPreview(String url) {
         Glide.with(this)
-                .load(uri)
-                .centerCrop()
+                .load(url)
                 .placeholder(R.drawable.ic_image_placeholder)
+                .error(R.drawable.ic_image_placeholder)
+                .centerCrop()
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(ivPosterPreview);
     }
 
-    private void displayTrailerPreview(Uri uri) {
+    private void loadTrailerPreview(String url) {
+        // For video URLs, we'll show a thumbnail or placeholder
         Glide.with(this)
-                .load(uri)
-                .centerCrop()
+                .load(url)
                 .placeholder(R.drawable.ic_play_circle)
+                .error(R.drawable.ic_play_circle)
+                .centerCrop()
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(ivTrailerPreview);
-    }
-
-    private String getFileName(Uri uri) {
-        String path = uri.getPath();
-        if (path != null) {
-            return path.substring(path.lastIndexOf('/') + 1);
-        }
-        return "Unknown file";
-    }
-
-    private void setupClickListeners() {
-        btnBack.setOnClickListener(v -> onBackPressed());
-
-        btnSelectPoster.setOnClickListener(v -> posterPickerLauncher.launch("image/*"));
-
-        btnSelectTrailer.setOnClickListener(v -> trailerPickerLauncher.launch("video/*"));
-
-        btnCancel.setOnClickListener(v -> {
-            // Show confirmation dialog
-            showCancelConfirmationDialog();
-        });
-
-        btnSave.setOnClickListener(v -> validateAndSaveMovie());
     }
 
     private void showCancelConfirmationDialog() {
@@ -251,6 +237,8 @@ public class AddMovieActivity extends AppCompatActivity {
         String releaseDate = etReleaseDate.getText().toString().trim();
         String status = spinnerStatus.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
+        String posterUrl = etPosterUrl.getText().toString().trim();
+        String trailerUrl = etTrailerUrl.getText().toString().trim();
 
         boolean isValid = true;
 
@@ -299,19 +287,27 @@ public class AddMovieActivity extends AppCompatActivity {
             isValid = false;
         }
 
-        if (selectedPosterUri == null) {
-            Toast.makeText(this, "Vui lòng chọn poster cho phim", Toast.LENGTH_SHORT).show();
+        // Poster URL is optional, but if provided, should be valid URL
+        if (!TextUtils.isEmpty(posterUrl) && !isValidUrl(posterUrl)) {
+            tilPosterUrl.setError("URL poster không hợp lệ");
+            isValid = false;
+        }
+
+        // Trailer URL is optional, but if provided, should be valid URL
+        if (!TextUtils.isEmpty(trailerUrl) && !isValidUrl(trailerUrl)) {
+            tilTrailerUrl.setError("URL trailer không hợp lệ");
             isValid = false;
         }
 
         if (isValid) {
-            // Create movie object
-            Movie movie = new Movie(title, genre, Integer.parseInt(durationStr),
-                    releaseDate, status, description);
-
-            // Start upload process
-            uploadMovieWithMedia(movie);
+            // Save movie to Firestore
+            saveMovieToFirestore(title, genre, Integer.parseInt(durationStr),
+                    releaseDate, status, description, posterUrl, trailerUrl);
         }
+    }
+
+    private boolean isValidUrl(String url) {
+        return url.matches("^(http|https)://.*");
     }
 
     private void clearErrors() {
@@ -320,81 +316,39 @@ public class AddMovieActivity extends AppCompatActivity {
         tilDuration.setError(null);
         tilReleaseDate.setError(null);
         tilStatus.setError(null);
+        tilPosterUrl.setError(null);
+        tilTrailerUrl.setError(null);
     }
 
-    private void uploadMovieWithMedia(Movie movie) {
+    private void saveMovieToFirestore(String title, String genre, int duration,
+                                      String releaseDate, String status, String description,
+                                      String posterUrl, String trailerUrl) {
         progressDialog.show();
 
-        // Upload poster first (required)
-        uploadPoster(movie, () -> {
-            // Upload trailer if selected
-            if (selectedTrailerUri != null) {
-                uploadTrailer(movie, () -> saveMovieToFirestore(movie));
-            } else {
-                saveMovieToFirestore(movie);
-            }
-        });
-    }
+        // Create movie data map
+        Map<String, Object> movieData = new HashMap<>();
+        movieData.put("title", title);
+        movieData.put("genre", genre);
+        movieData.put("duration", duration);
+        movieData.put("releaseDate", releaseDate);
+        movieData.put("status", status);
+        movieData.put("description", description);
+        movieData.put("createdAt", System.currentTimeMillis());
 
-    private void uploadPoster(Movie movie, Runnable onSuccess) {
-        String fileName = "poster_" + UUID.randomUUID().toString() + ".jpg";
-        StorageReference posterRef = storageRef.child(STORAGE_PATH_POSTERS + fileName);
+        // Add URLs if provided
+        if (!TextUtils.isEmpty(posterUrl)) {
+            movieData.put("posterUrl", posterUrl);
+        }
+        if (!TextUtils.isEmpty(trailerUrl)) {
+            movieData.put("trailerUrl", trailerUrl);
+        }
 
-        posterRef.putFile(selectedPosterUri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    posterRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        posterDownloadUrl = uri.toString();
-                        movie.setPosterUrl(posterDownloadUrl);
-                        onSuccess.run();
-                    }).addOnFailureListener(e -> {
-                        progressDialog.dismiss();
-                        Log.e(TAG, "Failed to get poster download URL", e);
-                        Toast.makeText(this, "Lỗi khi tải poster: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    progressDialog.dismiss();
-                    Log.e(TAG, "Failed to upload poster", e);
-                    Toast.makeText(this, "Lỗi khi tải poster: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void uploadTrailer(Movie movie, Runnable onSuccess) {
-        String fileName = "trailer_" + UUID.randomUUID().toString() + ".mp4";
-        StorageReference trailerRef = storageRef.child(STORAGE_PATH_TRAILERS + fileName);
-
-        trailerRef.putFile(selectedTrailerUri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    trailerRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        trailerDownloadUrl = uri.toString();
-                        movie.setTrailerUrl(trailerDownloadUrl);
-                        onSuccess.run();
-                    }).addOnFailureListener(e -> {
-                        progressDialog.dismiss();
-                        Log.e(TAG, "Failed to get trailer download URL", e);
-                        Toast.makeText(this, "Lỗi khi tải trailer: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    progressDialog.dismiss();
-                    Log.e(TAG, "Failed to upload trailer", e);
-                    Toast.makeText(this, "Lỗi khi tải trailer: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void saveMovieToFirestore(Movie movie) {
+        // Add to Firestore
         firestore.collection(COLLECTION_MOVIES)
-                .add(movie)
+                .add(movieData)
                 .addOnSuccessListener(documentReference -> {
-                    // Update movie with the generated ID
+                    // Update document with its own ID
                     String movieId = documentReference.getId();
-                    movie.setId(movieId);
-
-                    // Update the document with the ID
                     documentReference.update("id", movieId)
                             .addOnSuccessListener(aVoid -> {
                                 progressDialog.dismiss();
@@ -402,7 +356,7 @@ public class AddMovieActivity extends AppCompatActivity {
 
                                 // Return result and finish
                                 Intent resultIntent = new Intent();
-                                resultIntent.putExtra("new_movie", movie);
+                                movieData.put("id", movieId);
                                 setResult(RESULT_OK, resultIntent);
                                 finish();
                             })
@@ -437,8 +391,8 @@ public class AddMovieActivity extends AppCompatActivity {
                 !TextUtils.isEmpty(etReleaseDate.getText()) ||
                 !TextUtils.isEmpty(spinnerStatus.getText()) ||
                 !TextUtils.isEmpty(etDescription.getText()) ||
-                selectedPosterUri != null ||
-                selectedTrailerUri != null;
+                !TextUtils.isEmpty(etPosterUrl.getText()) ||
+                !TextUtils.isEmpty(etTrailerUrl.getText());
     }
 
     @Override
