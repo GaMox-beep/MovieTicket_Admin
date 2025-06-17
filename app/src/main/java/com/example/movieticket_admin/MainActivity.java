@@ -14,6 +14,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.example.movieticket_admin.Cinema.CinemaAdminFragment;
 import com.example.movieticket_admin.Movie.MovieAdminFragment;
+import com.example.movieticket_admin.Seat.SeatLayoutManagerFragment;
 import com.google.android.material.navigation.NavigationView;
 
 import java.util.HashMap;
@@ -57,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
         // Các mục khác sẽ được cập nhật sau
          fragmentMap.put(R.id.nav_genres, CinemaAdminFragment.class);
         // fragmentMap.put(R.id.nav_services, ServicesFragment.class);
-         fragmentMap.put(R.id.nav_reports, DashboardFragment.class);
+         fragmentMap.put(R.id.nav_reports, SeatLayoutManagerFragment.class);
 
         // Xử lý sự kiện click menu
         navigationView.setNavigationItemSelectedListener(new NavigationView.OnNavigationItemSelectedListener() {

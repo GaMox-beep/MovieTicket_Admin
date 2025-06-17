@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Trường nhập ID (ngăn chỉnh sửa trực tiếp nhưng vẫn cho phép cập nhật bằng code) -->
+    <EditText
+        android:id="@+id/editTextId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="ID (tự động tạo khi thêm mới)"
+  />
+
+    <!-- Trường nhập tên -->
+    <EditText
+        android:id="@+id/editTextName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Tên bố cục (ví dụ: Phòng 1)" />
+
+    <!-- Trường nhập original_layout -->
+    <EditText
+        android:id="@+id/editTextOriginalLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Bố cục gốc (ví dụ: A A A _ A A\nA V _ V A A)"
+        android:inputType="textMultiLine"
+        android:minLines="3" />
+
+    <!-- Trường nhập current_layout -->
+    <EditText
+        android:id="@+id/editTextCurrentLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Bố cục hiện tại (giống gốc khi tạo mới)"
+        android:inputType="textMultiLine"
+        android:minLines="3" />
+
+    <!-- Các nút CRUD -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
+
+        <Button
+            android:id="@+id/buttonCreate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tạo mới" />
+
+        <Button
+            android:id="@+id/buttonUpdate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cập nhật" />
+
+        <Button
+            android:id="@+id/buttonDelete"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Xóa" />
+
+    </LinearLayout>
+
+    <!-- ScrollView chứa RecyclerView để hiển thị danh sách seat_layout -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewSeatLayouts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </ScrollView>
+
+</LinearLayout>
