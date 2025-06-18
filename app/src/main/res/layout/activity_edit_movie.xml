@@ -298,7 +298,14 @@
                 android:layout_marginStart="8dp"
                 android:text="Lưu Phim"
                 android:backgroundTint="@color/primary_color" />
-
+            <Button
+                android:id="@+id/btn_add_showtime"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Thêm suất chiếu"
+                android:backgroundTint="@color/primary_color" />
         </LinearLayout>
 
     </LinearLayout>

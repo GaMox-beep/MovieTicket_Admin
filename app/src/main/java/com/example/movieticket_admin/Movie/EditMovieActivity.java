@@ -1,9 +1,12 @@
 package com.example.movieticket_admin.Movie;
 
 import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -11,22 +14,25 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.bumptech.glide.Glide;
 import com.example.movieticket_admin.R;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -36,14 +42,18 @@ public class EditMovieActivity extends AppCompatActivity {
     private AutoCompleteTextView spinnerGenre, spinnerStatus;
     private LinearLayout layoutPosterPreview, layoutTrailerPreview;
     private ImageView ivPosterPreview, ivTrailerPreview;
-    private Button btnCancel, btnSave;
+    private Button btnCancel, btnSave, btnAddShowtime;
     private ImageButton btnBack;
 
-    private String movieId; // id phim cần chỉnh sửa
+    private String movieId;
     private FirebaseFirestore db;
-
-    private String[] genreOptions = {"Hành động", "Kinh dị", "Tình cảm", "Hài", "Phiêu lưu"}; // ví dụ
-    private String[] statusOptions = {"Sắp chiếu", "Đang chiếu", "Đã kết thúc"}; // ví dụ
+    private List<String> seatLayoutNames = new ArrayList<>();
+    private Map<String, String> seatLayoutIdMap = new HashMap<>();
+    private List<String> cinemaNames = new ArrayList<>();
+    private Map<String, String> cinemaIdMap = new HashMap<>();
+    private String[] genreOptions = {"Hành động", "Kinh dị", "Tình cảm", "Hài", "Phiêu lưu"};
+    private String[] statusOptions = {"Sắp chiếu", "Đang chiếu", "Đã kết thúc"};
+    private boolean seatLayoutsLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,9 +77,8 @@ public class EditMovieActivity extends AppCompatActivity {
         ivTrailerPreview = findViewById(R.id.iv_trailer_preview);
         btnCancel = findViewById(R.id.btn_cancel);
         btnSave = findViewById(R.id.btn_save);
+        btnAddShowtime = findViewById(R.id.btn_add_showtime);
         btnBack = findViewById(R.id.btn_back);
-
-        // Thiết lập adapter cho spinner
 
         // Lấy movieId từ Intent
         movieId = getIntent().getStringExtra("MOVIE_ID");
@@ -78,6 +87,13 @@ public class EditMovieActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Tải danh sách layout ghế và rạp
+        loadSeatLayoutNames();
+        loadCinemaNames();
+
+        // Thiết lập spinners
+        setupSpinners();
 
         // Load dữ liệu movie từ Firestore
         loadMovieData();
@@ -90,6 +106,9 @@ public class EditMovieActivity extends AppCompatActivity {
 
         // Bắt sự kiện nút lưu
         btnSave.setOnClickListener(v -> updateMovie());
+
+        // Bắt sự kiện nút thêm suất chiếu
+        btnAddShowtime.setOnClickListener(v -> showAddShowtimeDialog());
 
         // Click chọn ngày khởi chiếu
         etReleaseDate.setOnClickListener(v -> showDatePicker());
@@ -112,9 +131,207 @@ public class EditMovieActivity extends AppCompatActivity {
                 }
             }
         });
-        setupSpinners();
+    }
 
-        // Trailer preview - bạn có thể thêm xử lý tương tự nếu muốn
+    private void loadSeatLayoutNames() {
+        db.collection("seat_layout")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    seatLayoutNames.clear();
+                    seatLayoutIdMap.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String name = document.getString("name");
+                        String id = document.getId();
+                        if (name != null && !name.trim().isEmpty()) {
+                            String normalizedName = name.trim();
+                            seatLayoutNames.add(normalizedName);
+                            seatLayoutIdMap.put(normalizedName, id);
+                        }
+                    }
+                    seatLayoutsLoaded = true;
+                    Log.d("EditMovieActivity", "Loaded seat layouts: " + seatLayoutNames + ", IDs: " + seatLayoutIdMap);
+                })
+                .addOnFailureListener(e -> {
+                    seatLayoutsLoaded = false;
+                    Log.e("EditMovieActivity", "Error loading seat layouts: ", e);
+                    Toast.makeText(this, "Lỗi khi tải layout ghế: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void loadCinemaNames() {
+        db.collection("cinemas")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    cinemaNames.clear();
+                    cinemaIdMap.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String name = document.getString("name");
+                        String id = document.getId();
+                        if (name != null) {
+                            cinemaNames.add(name);
+                            cinemaIdMap.put(name, id);
+                        }
+                    }
+                    Log.d("EditMovieActivity", "Loaded cinemas: " + cinemaNames);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("EditMovieActivity", "Error loading cinemas: ", e);
+                    Toast.makeText(this, "Lỗi khi tải danh sách rạp: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void showAddShowtimeDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_showtime, null);
+        builder.setView(dialogView);
+
+        // Ánh xạ các view trong dialog
+        Spinner spinnerCinema = dialogView.findViewById(R.id.spinner_cinema);
+        Spinner spinnerSeatLayout = dialogView.findViewById(R.id.spinner_seat_layout);
+        TextInputEditText etDate = dialogView.findViewById(R.id.et_date);
+        TextInputEditText etTime = dialogView.findViewById(R.id.et_time);
+        Button btnCancelDialog = dialogView.findViewById(R.id.btn_cancel_dialog);
+        Button btnSaveDialog = dialogView.findViewById(R.id.btn_save_dialog);
+
+        // Cấu hình spinner rạp chiếu
+        ArrayAdapter<String> cinemaAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, cinemaNames);
+        cinemaAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerCinema.setAdapter(cinemaAdapter);
+
+        // Cấu hình spinner layout ghế
+        ArrayAdapter<String> seatLayoutAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, seatLayoutNames);
+        seatLayoutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSeatLayout.setAdapter(seatLayoutAdapter);
+
+        // Vô hiệu hóa nút Lưu nếu chưa tải xong seat layouts
+        btnSaveDialog.setEnabled(seatLayoutsLoaded);
+
+        // Cấu hình chọn ngày
+        Calendar calendar = Calendar.getInstance();
+        etDate.setOnClickListener(v -> {
+            DatePickerDialog datePickerDialog = new DatePickerDialog(
+                    EditMovieActivity.this,
+                    (view, year, month, dayOfMonth) -> {
+                        calendar.set(year, month, dayOfMonth);
+                        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                        etDate.setText(sdf.format(calendar.getTime()));
+                    },
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH),
+                    calendar.get(Calendar.DAY_OF_MONTH)
+            );
+            datePickerDialog.show();
+        });
+
+        // Cấu hình chọn giờ
+        etTime.setOnClickListener(v -> {
+            TimePickerDialog timePickerDialog = new TimePickerDialog(
+                    EditMovieActivity.this,
+                    (view, hourOfDay, minute) -> {
+                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                        calendar.set(Calendar.MINUTE, minute);
+                        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
+                        etTime.setText(sdf.format(calendar.getTime()));
+                    },
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    true
+            );
+            timePickerDialog.show();
+        });
+
+        AlertDialog dialog = builder.create();
+
+        // Xử lý nút Hủy trong dialog
+        btnCancelDialog.setOnClickListener(v -> dialog.dismiss());
+
+        // Xử lý nút Lưu trong dialog
+        btnSaveDialog.setOnClickListener(v -> {
+            String cinemaName = spinnerCinema.getSelectedItem() != null ? spinnerCinema.getSelectedItem().toString() : "";
+            String seatLayoutName = spinnerSeatLayout.getSelectedItem() != null ? spinnerSeatLayout.getSelectedItem().toString() : "";
+            String date = etDate.getText().toString().trim();
+            String time = etTime.getText().toString().trim();
+
+            if (cinemaName.isEmpty()) {
+                Toast.makeText(this, "Vui lòng chọn rạp chiếu", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (seatLayoutName.isEmpty()) {
+                Toast.makeText(this, "Vui lòng chọn layout ghế", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (date.isEmpty()) {
+                etDate.setError("Vui lòng chọn ngày");
+                return;
+            }
+            if (time.isEmpty()) {
+                etTime.setError("Vui lòng chọn giờ");
+                return;
+            }
+
+            String cinemaId = cinemaIdMap.get(cinemaName);
+            String seatLayoutId = seatLayoutIdMap.get(seatLayoutName);
+            Log.d("EditMovieActivity", "Saving showtime with seatLayoutName: " + seatLayoutName + ", seatLayoutId: " + seatLayoutId);
+            if (seatLayoutId == null || seatLayoutId.isEmpty()) {
+                Toast.makeText(this, "Không tìm thấy ID layout ghế", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            saveShowtime(cinemaId, seatLayoutId, date, time, dialog);
+        });
+
+        dialog.show();
+    }
+
+    private void saveShowtime(String cinemaId, String seatLayoutId, String date, String time, AlertDialog dialog) {
+        db.collection("seat_layout").document(seatLayoutId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String originalLayoutStr = documentSnapshot.getString("originalLayout");
+                        if (originalLayoutStr == null || originalLayoutStr.isEmpty()) {
+                            Toast.makeText(this, "Layout ghế không hợp lệ", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        // Phân tách chuỗi thành List<String> bằng dấu |
+                        List<String> originalLayout = Arrays.asList(originalLayoutStr.split("\\|"));
+
+                        if (originalLayout.isEmpty()) {
+                            Toast.makeText(this, "Layout ghế không hợp lệ", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        // Lưu showtime với currentLayout và seatLayoutId
+                        Map<String, Object> showtimeData = new HashMap<>();
+                        showtimeData.put("movieId", movieId);
+                        showtimeData.put("cinemaId", cinemaId);
+                        showtimeData.put("currentLayout", originalLayout);
+                        showtimeData.put("seatLayoutId", seatLayoutId);
+                        showtimeData.put("date", date);
+                        showtimeData.put("time", time);
+                        showtimeData.put("createdAt", Timestamp.now());
+                        showtimeData.put("updatedAt", Timestamp.now());
+
+                        Log.d("EditMovieActivity", "Saving showtime data: " + showtimeData);
+
+                        db.collection("showtimes")
+                                .add(showtimeData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Toast.makeText(this, "Thêm suất chiếu thành công", Toast.LENGTH_SHORT).show();
+                                    dialog.dismiss();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("EditMovieActivity", "Error adding showtime: ", e);
+                                    Toast.makeText(this, "Lỗi khi thêm suất chiếu: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                });
+                    } else {
+                        Log.e("EditMovieActivity", "Seat layout document does not exist: " + seatLayoutId);
+                        Toast.makeText(this, "Layout ghế không tồn tại", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("EditMovieActivity", "Error fetching seat layout: ", e);
+                    Toast.makeText(this, "Lỗi khi lấy layout ghế: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void loadMovieData() {
@@ -141,7 +358,6 @@ public class EditMovieActivity extends AppCompatActivity {
                             if (pos >= 0) spinnerStatus.setText(statusOptions[pos], false);
                         }
 
-                        // Hiển thị poster preview nếu có url
                         String posterUrl = documentSnapshot.getString("posterUrl");
                         if (posterUrl != null && !posterUrl.isEmpty()) {
                             layoutPosterPreview.setVisibility(View.VISIBLE);
@@ -151,8 +367,6 @@ public class EditMovieActivity extends AppCompatActivity {
                                     .error(R.drawable.bg_image_placeholder)
                                     .into(ivPosterPreview);
                         }
-
-                        // Tương tự trailer preview nếu cần
                     } else {
                         Toast.makeText(this, "Phim không tồn tại", Toast.LENGTH_SHORT).show();
                         finish();
@@ -187,7 +401,6 @@ public class EditMovieActivity extends AppCompatActivity {
         String trailerUrl = etTrailerUrl.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
 
-        // Kiểm tra bắt buộc
         if (title.isEmpty() || genre.isEmpty() || durationStr.isEmpty() || releaseDate.isEmpty() || status.isEmpty()) {
             Toast.makeText(this, "Vui lòng nhập đầy đủ các trường bắt buộc", Toast.LENGTH_SHORT).show();
             return;
@@ -222,17 +435,14 @@ public class EditMovieActivity extends AppCompatActivity {
                     Toast.makeText(EditMovieActivity.this, "Lỗi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
+
     private void setupSpinners() {
-        // Genre Spinner
-        String[] genres = getResources().getStringArray(R.array.movie_genres);
         ArrayAdapter<String> genreAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, genres);
+                android.R.layout.simple_dropdown_item_1line, genreOptions);
         spinnerGenre.setAdapter(genreAdapter);
 
-        // Status Spinner
-        String[] statuses = getResources().getStringArray(R.array.movie_status);
         ArrayAdapter<String> statusAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, statuses);
+                android.R.layout.simple_dropdown_item_1line, statusOptions);
         spinnerStatus.setAdapter(statusAdapter);
     }
 }
