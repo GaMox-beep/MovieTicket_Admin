@@ -54,6 +54,7 @@ public class EditMovieActivity extends AppCompatActivity {
     private String[] genreOptions = {"Hành động", "Kinh dị", "Tình cảm", "Hài", "Phiêu lưu"};
     private String[] statusOptions = {"Sắp chiếu", "Đang chiếu", "Đã kết thúc"};
     private boolean seatLayoutsLoaded = false;
+    private boolean cinemasLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,7 +109,13 @@ public class EditMovieActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> updateMovie());
 
         // Bắt sự kiện nút thêm suất chiếu
-        btnAddShowtime.setOnClickListener(v -> showAddShowtimeDialog());
+        btnAddShowtime.setOnClickListener(v -> {
+            if (seatLayoutsLoaded && cinemasLoaded) {
+                showAddShowtimeDialog();
+            } else {
+                Toast.makeText(this, "Đang tải dữ liệu, vui lòng chờ...", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // Click chọn ngày khởi chiếu
         etReleaseDate.setOnClickListener(v -> showDatePicker());
@@ -150,6 +157,7 @@ public class EditMovieActivity extends AppCompatActivity {
                     }
                     seatLayoutsLoaded = true;
                     Log.d("EditMovieActivity", "Loaded seat layouts: " + seatLayoutNames + ", IDs: " + seatLayoutIdMap);
+                    updateAddShowtimeButtonState();
                 })
                 .addOnFailureListener(e -> {
                     seatLayoutsLoaded = false;
@@ -172,12 +180,21 @@ public class EditMovieActivity extends AppCompatActivity {
                             cinemaIdMap.put(name, id);
                         }
                     }
+                    cinemasLoaded = true;
                     Log.d("EditMovieActivity", "Loaded cinemas: " + cinemaNames);
+                    updateAddShowtimeButtonState();
                 })
                 .addOnFailureListener(e -> {
+                    cinemasLoaded = false;
                     Log.e("EditMovieActivity", "Error loading cinemas: ", e);
                     Toast.makeText(this, "Lỗi khi tải danh sách rạp: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void updateAddShowtimeButtonState() {
+        if (btnAddShowtime != null) {
+            btnAddShowtime.setEnabled(seatLayoutsLoaded && cinemasLoaded);
+        }
     }
 
     private void showAddShowtimeDialog() {
@@ -202,9 +219,6 @@ public class EditMovieActivity extends AppCompatActivity {
         ArrayAdapter<String> seatLayoutAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, seatLayoutNames);
         seatLayoutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerSeatLayout.setAdapter(seatLayoutAdapter);
-
-        // Vô hiệu hóa nút Lưu nếu chưa tải xong seat layouts
-        btnSaveDialog.setEnabled(seatLayoutsLoaded);
 
         // Cấu hình chọn ngày
         Calendar calendar = Calendar.getInstance();
@@ -271,11 +285,20 @@ public class EditMovieActivity extends AppCompatActivity {
 
             String cinemaId = cinemaIdMap.get(cinemaName);
             String seatLayoutId = seatLayoutIdMap.get(seatLayoutName);
-            Log.d("EditMovieActivity", "Saving showtime with seatLayoutName: " + seatLayoutName + ", seatLayoutId: " + seatLayoutId);
+
+            Log.d("EditMovieActivity", "Selected cinema: " + cinemaName + " -> ID: " + cinemaId);
+            Log.d("EditMovieActivity", "Selected seat layout: " + seatLayoutName + " -> ID: " + seatLayoutId);
+
+            if (cinemaId == null || cinemaId.isEmpty()) {
+                Toast.makeText(this, "Không tìm thấy ID rạp chiếu", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (seatLayoutId == null || seatLayoutId.isEmpty()) {
                 Toast.makeText(this, "Không tìm thấy ID layout ghế", Toast.LENGTH_SHORT).show();
                 return;
             }
+
             saveShowtime(cinemaId, seatLayoutId, date, time, dialog);
         });
 
@@ -283,9 +306,13 @@ public class EditMovieActivity extends AppCompatActivity {
     }
 
     private void saveShowtime(String cinemaId, String seatLayoutId, String date, String time, AlertDialog dialog) {
+        Log.d("EditMovieActivity", "Starting saveShowtime with seatLayoutId: " + seatLayoutId);
+
         db.collection("seat_layout").document(seatLayoutId).get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
+                        Log.d("EditMovieActivity", "Seat layout document found: " + documentSnapshot.getData());
+
                         String originalLayoutStr = documentSnapshot.getString("originalLayout");
                         if (originalLayoutStr == null || originalLayoutStr.isEmpty()) {
                             Toast.makeText(this, "Layout ghế không hợp lệ", Toast.LENGTH_SHORT).show();
@@ -305,19 +332,27 @@ public class EditMovieActivity extends AppCompatActivity {
                         showtimeData.put("movieId", movieId);
                         showtimeData.put("cinemaId", cinemaId);
                         showtimeData.put("currentLayout", originalLayout);
-                        showtimeData.put("seatLayoutId", seatLayoutId);
+                        showtimeData.put("seatLayoutId", seatLayoutId);  // Đảm bảo field này được thêm
                         showtimeData.put("date", date);
                         showtimeData.put("time", time);
                         showtimeData.put("createdAt", Timestamp.now());
                         showtimeData.put("updatedAt", Timestamp.now());
 
                         Log.d("EditMovieActivity", "Saving showtime data: " + showtimeData);
+                        Log.d("EditMovieActivity", "seatLayoutId in data: " + showtimeData.get("seatLayoutId"));
 
                         db.collection("showtimes")
                                 .add(showtimeData)
                                 .addOnSuccessListener(documentReference -> {
+                                    Log.d("EditMovieActivity", "Showtime saved successfully with ID: " + documentReference.getId());
                                     Toast.makeText(this, "Thêm suất chiếu thành công", Toast.LENGTH_SHORT).show();
                                     dialog.dismiss();
+
+                                    // Verify saved data
+                                    documentReference.get().addOnSuccessListener(savedDoc -> {
+                                        Log.d("EditMovieActivity", "Verified saved data: " + savedDoc.getData());
+                                        Log.d("EditMovieActivity", "Verified seatLayoutId: " + savedDoc.getString("seatLayoutId"));
+                                    });
                                 })
                                 .addOnFailureListener(e -> {
                                     Log.e("EditMovieActivity", "Error adding showtime: ", e);
